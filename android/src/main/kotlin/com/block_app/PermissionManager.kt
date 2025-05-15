@@ -18,7 +18,7 @@ class PermissionManager(private val activity: Activity) : MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "checkOverlayPermission" -> {
-                result.success(Settings.canDrawOverlays(activity))
+                result.success(isOverlayPermissionGranted())
             }
             "requestOverlayPermission" -> {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -79,19 +79,25 @@ class PermissionManager(private val activity: Activity) : MethodCallHandler {
         }
     }
 
-    private fun isAccessibilityEnabled(): Boolean {
-        val accessibilityEnabled = try {
-            Settings.Secure.getInt(
-                activity.contentResolver,
-                Settings.Secure.ACCESSIBILITY_ENABLED
-            )
-        } catch (e: Settings.SettingNotFoundException) {
-            0
+    fun isOverlayPermissionGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Settings.canDrawOverlays(activity)
+        } else {
+            true
         }
-        return accessibilityEnabled == 1
     }
-
-    private fun isUsageStatsEnabled(): Boolean {
+    
+    fun requestOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(activity)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:${activity.packageName}")
+            )
+            activity.startActivityForResult(intent, OVERLAY_PERMISSION_REQ_CODE)
+        }
+    }
+    
+    fun isUsageStatsEnabled(): Boolean {
         val appOps = activity.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             appOps.unsafeCheckOpNoThrow(
@@ -108,6 +114,23 @@ class PermissionManager(private val activity: Activity) : MethodCallHandler {
             )
         }
         return mode == AppOpsManager.MODE_ALLOWED
+    }
+    
+    fun requestUsageStatsPermission() {
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        activity.startActivityForResult(intent, USAGE_STATS_PERMISSION_REQ_CODE)
+    }
+
+    private fun isAccessibilityEnabled(): Boolean {
+        val accessibilityEnabled = try {
+            Settings.Secure.getInt(
+                activity.contentResolver,
+                Settings.Secure.ACCESSIBILITY_ENABLED
+            )
+        } catch (e: Settings.SettingNotFoundException) {
+            0
+        }
+        return accessibilityEnabled == 1
     }
 
     companion object {

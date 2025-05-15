@@ -1,0 +1,170 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are a senior Dart programmer with experience in the Flutter framework and a preference for clean programming and design patterns.
+
+## Basic Principles
+
+- Use English for all code and documentation.
+- Always declare the type of each variable and function (parameters and return value).
+- Avoid using `dynamic` and `Object` when possible.
+- Create specific types instead of relying on primitive types.
+- Don't leave blank lines within a function.
+- One export per file.
+- Use `const` for compile-time constants whenever possible.
+- Follow the @Effective Dart style guide.
+
+## Nomenclature
+
+- Use PascalCase for classes, enums, extensions, and typedefs.
+- Use camelCase for variables, functions, and methods.
+- Use underscore_case for file and directory names.
+- Use UPPERCASE_WITH_UNDERSCORES for constants and enum values.
+- Avoid magic numbers and define constants.
+- Start each function with a verb.
+- Use verbs for boolean variables: `isLoading`, `hasError`, `canDelete`.
+- Use complete words instead of abbreviations except for standard cases:
+  - Standard abbreviations: `API`, `URL`, `HTTP`, etc.
+  - Loop counters: `i`, `j`, `k`
+  - Error variables: `err`, `e`, `ex`
+  - Context variables: `ctx`, `context`
+  - HTTP request handlers: `req`, `res`, `next`
+
+## Functions
+
+- Write short functions with a single purpose (< 20 lines).
+- Name functions with a clear verb-based convention:
+  - Boolean returners: `isValid()`, `hasPermission()`, `canProceed()`
+  - Actions: `fetchData()`, `saveUser()`, `updateProfile()`
+- Avoid nesting blocks by using:
+  - Early returns for validation and error handling.
+  - Extraction to utility functions for complex operations.
+- Use higher-order functions (map, filter, etc.) to reduce nesting.
+- Use arrow functions (`=>`) for simple one-liners.
+- Use named parameters for functions with 3+ parameters.
+- Use default parameter values instead of null checks.
+- Declare proper return types for all functions.
+- Follow Single Level of Abstraction Principle (SLAP).
+
+```dart
+// Good example
+Future<Result<User>> fetchUserData({required String userId}) async {
+  if (userId.isEmpty) {
+    return Result.failure('User ID cannot be empty');
+  }
+  
+  try {
+    final response = await _apiClient.get('/users/$userId');
+    return Result.success(User.fromJson(response.data));
+  } catch (e) {
+    return Result.failure('Failed to fetch user: ${e.toString()}');
+  }
+}
+```
+
+## Data Handling
+
+- Use `freezed` for immutable data classes.
+- Apply proper validation for all input data.
+- Use nullable types only when values can genuinely be null.
+- Prefer immutability - create new instances rather than modifying.
+- Use `sealed` classes or `freezed` unions for representing state.
+- Use `typedef` for complex types to improve readability.
+
+```dart
+// Good example using freezed
+@freezed
+class UserState with _$UserState {
+  const factory UserState.initial() = UserInitial;
+  const factory UserState.loading() = UserLoading;
+  const factory UserState.loaded(User user) = UserLoaded;
+  const factory UserState.error(String message) = UserError;
+}
+```
+
+## Classes
+
+- Follow SOLID principles:
+  - Single Responsibility Principle
+  - Open/Closed Principle
+  - Liskov Substitution Principle
+  - Interface Segregation Principle
+  - Dependency Inversion Principle
+- Prefer composition over inheritance.
+- Define interfaces for all repositories and services.
+- Keep classes small and focused (< 200 lines, < 10 methods).
+- Use private fields with getters/setters when appropriate.
+- Implement proper `==` and `hashCode` for custom classes.
+
+```dart
+// Good example using dependency injection
+@injectable
+class UserRepository implements IUserRepository {
+  final ApiClient _apiClient;
+  
+  UserRepository(this._apiClient);
+  
+  @override
+  Future<User?> getUserById(String id) async {
+    // Implementation
+  }
+}
+```
+
+## Error Handling
+
+- Use typed exceptions for expected error cases.
+- Catch exceptions at boundaries where they can be properly handled.
+- Add context to exceptions when re-throwing.
+- Use `Result<T>` pattern to handle success/failure states.
+- Log errors with appropriate context information.
+
+## Testing
+
+- Follow Arrange-Act-Assert pattern.
+- Use descriptive test names following `should_expectedBehavior_when_condition`.
+- Name test variables with clear conventions:
+  - `mockX` for test doubles
+  - `fakeX` for fake implementations
+  - `expectedX` for expected values
+  - `actualX` for actual results
+- Test both success and failure cases.
+- Use test doubles (mocks/fakes) for external dependencies.
+- Write unit tests for each public method.
+- Write widget tests for UI components.
+- Write integration tests for complete features.
+
+```dart
+// Good test example
+test('should return user when fetchUser succeeds', () async {
+  // Arrange
+  final mockApi = MockApiClient();
+  final repository = UserRepository(mockApi);
+  final expectedUser = User(id: '123', name: 'Test User');
+  
+  when(mockApi.get('/users/123')).thenAnswer(
+    (_) async => ApiResponse(data: {'id': '123', 'name': 'Test User'})
+  );
+  
+  // Act
+  final actualUser = await repository.getUserById('123');
+  
+  // Assert
+  expect(actualUser, equals(expectedUser));
+});
+```
+
+## Flutter-Specific Guidelines
+
+- Use `StatelessWidget` when possible.
+- Extract widget methods for complex UI sections.
+- Keep `build()` methods simple and readable.
+- Use `const` constructors for widgets.
+- Separate business logic from UI using BLoC pattern.
+- Use `context.read<T>()` for one-time access and `context.watch<T>()` for rebuilds.
+- Prefer named routes with AutoRoute.
+- Use `Theme` for consistent styling across the app.
+- Create reusable widgets for common UI patterns.
+- Properly dispose of controllers and subscriptions.

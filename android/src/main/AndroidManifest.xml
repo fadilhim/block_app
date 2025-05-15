@@ -15,4 +15,27 @@
         tools:ignore="ProtectedPermissions"/>
         
     <!-- Accessibility Service permission is handled through Android's Accessibility Settings -->
+
+    <!-- Permissions needed for app blocking -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+        <!-- App blocking service -->
+        <service
+            android:name=".AppBlockingService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- Boot receiver to start service on device boot if needed -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+    </application>
 </manifest>

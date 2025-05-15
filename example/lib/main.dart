@@ -1,3 +1,4 @@
+import 'package:example/app_block_example_page.dart';
 import 'package:flutter/material.dart';
 import 'package:block_app/block_app.dart';
 
@@ -6,188 +7,219 @@ import 'package:block_app/block_app.dart';
 /// - fetch installed apps
 /// - block an app by package name
 void main() {
-  runApp(const PermissionDemoApp());
+  runApp(const MyApp());
 }
 
-class PermissionDemoApp extends StatelessWidget {
-  const PermissionDemoApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Block App Demo',
-      theme: ThemeData(primarySwatch: Colors.indigo),
-      home: const PermissionDemoPage(),
+      title: 'Block App Example',
+      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
+      home: const HomePage(),
     );
   }
 }
 
-class PermissionDemoPage extends StatefulWidget {
-  const PermissionDemoPage({super.key});
+/// An example page that demonstrates how to use the app blocking functionality.
+class HomePage extends StatefulWidget {
+  /// Creates an app block example page.
+  const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<PermissionDemoPage> createState() => _PermissionDemoPageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _PermissionDemoPageState extends State<PermissionDemoPage> {
-  final BlockAppManager _manager = BlockAppManager();
-  final TextEditingController _blockController = TextEditingController();
-  List<AppModel> _installedApps = [];
-  bool _loadingApps = false;
+class _HomePageState extends State<HomePage> {
+  final BlockApp _blockApp = BlockApp();
+  final Map<String, bool> _permissions = {
+    'hasOverlayPermission': false,
+    'hasUsageStatsPermission': false,
+  };
+  bool _isInitialized = false;
 
-  Future<void> _showResult(String label, Future<bool> call) async {
-    final bool granted = await call;
-    if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$label: ${granted ? "✅" : "❌"}')));
+  @override
+  void initState() {
+    super.initState();
+    _initBlockApp();
   }
 
-  Future<void> _loadApps() async {
-    setState(() {
-      _loadingApps = true;
-    });
-    final apps = await _manager.getInstalledApps();
-    setState(() {
-      _installedApps = apps;
-      _loadingApps = false;
-    });
-  }
-
-  Future<void> _blockApp() async {
-    final pkg = _blockController.text.trim();
-    if (pkg.isEmpty) {
-      return;
-    }
-    final success = await _manager.blockApp(pkg);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Block "$pkg": ${success ? "succeeded ✅" : "failed ❌"}'),
+  Future<void> _initBlockApp() async {
+    await _blockApp.initialize(
+      config: const AppBlockConfig(
+        defaultMessage: 'This app has been blocked for productivity',
+        overlayBackgroundColor: Colors.black87,
+        overlayTextColor: Colors.white,
+        actionButtonText: 'Close',
+        autoStartService: true,
       ),
     );
+
+    setState(() {
+      _isInitialized = true;
+    });
+
+    _checkAllPermissions();
   }
 
-  @override
-  void dispose() {
-    _blockController.dispose();
-    super.dispose();
+  Future<void> _checkAllPermissions() async {
+    final permissions = await _blockApp.checkPermissions();
+    setState(() {
+      _permissions.addAll(permissions);
+    });
+  }
+
+  Future<void> _requestOverlayPermission() async {
+    await _blockApp.requestOverlayPermission();
+    await _checkAllPermissions();
+  }
+
+  Future<void> _requestUsageStatsPermission() async {
+    await _blockApp.requestUsageStatsPermission();
+    await _checkAllPermissions();
+  }
+
+  Future<void> _openAppBlockingPage() async {
+    if (_permissions['hasOverlayPermission']! &&
+        _permissions['hasUsageStatsPermission']!) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const AppBlockExamplePage()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please grant all required permissions first'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isInitialized) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Block App Demo')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(title: const Text('Block App Example')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Permission Checks',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              'Required Permissions',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Overlay permission',
-                    _manager.checkOverlayPermission(),
+            const SizedBox(height: 16),
+
+            // Overlay Permission
+            PermissionItem(
+              title: 'Display Over Other Apps',
+              isGranted: _permissions['hasOverlayPermission'] ?? false,
+              onCheck: _checkAllPermissions,
+              onRequest: _requestOverlayPermission,
+              description:
+                  'Required to show blocking overlay when a blocked app is launched',
+            ),
+
+            const SizedBox(height: 16),
+
+            // Usage Stats Permission
+            PermissionItem(
+              title: 'Usage Stats Access',
+              isGranted: _permissions['hasUsageStatsPermission'] ?? false,
+              onCheck: _checkAllPermissions,
+              onRequest: _requestUsageStatsPermission,
+              description: 'Required to detect when a blocked app is launched',
+            ),
+
+            const SizedBox(height: 32),
+
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _openAppBlockingPage,
+                icon: const Icon(Icons.block),
+                label: const Text('Open App Blocking Page'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
                   ),
-              child: const Text('Check Overlay Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Request Overlay',
-                    _manager.requestOverlayPermissions(),
-                  ),
-              child: const Text('Request Overlay Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Accessibility permission',
-                    _manager.checkAccesibilityPermissions(),
-                  ),
-              child: const Text('Check Accessibility Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Request Accessibility',
-                    _manager.requestAccesibilityPermissions(),
-                  ),
-              child: const Text('Request Accessibility Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Notification permission',
-                    _manager.checkNotificationPermission(),
-                  ),
-              child: const Text('Check Notification Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Request Notification',
-                    _manager.requestNotificationPermissions(),
-                  ),
-              child: const Text('Request Notification Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Usage-stats permission',
-                    _manager.checkUsageStatePermission(),
-                  ),
-              child: const Text('Check Usage-Stats Permission'),
-            ),
-            ElevatedButton(
-              onPressed:
-                  () => _showResult(
-                    'Request Usage-Stats',
-                    _manager.requestUsageStatePermissions(),
-                  ),
-              child: const Text('Request Usage-Stats Permission'),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Installed Apps',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            ElevatedButton(
-              onPressed: _loadingApps ? null : _loadApps,
-              child: Text(_loadingApps ? 'Loading…' : 'Get Installed Apps'),
-            ),
-            const SizedBox(height: 8),
-            if (_installedApps.isEmpty && !_loadingApps)
-              const Text('No apps loaded yet.')
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _installedApps.length,
-                itemBuilder: (_, i) {
-                  final app = _installedApps[i];
-                  return ListTile(
-                    title: Text(app.appName),
-                    subtitle: Text(app.packageName),
-                    trailing:
-                        app.isSystemApp
-                            ? const Icon(Icons.settings)
-                            : const Icon(Icons.android),
-                  );
-                },
+                ),
               ),
-            const SizedBox(height: 24),
-            const Text(
-              'Block an App',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class PermissionItem extends StatelessWidget {
+  final String title;
+  final bool isGranted;
+  final VoidCallback onCheck;
+  final VoidCallback onRequest;
+  final String description;
+
+  const PermissionItem({
+    Key? key,
+    required this.title,
+    required this.isGranted,
+    required this.onCheck,
+    required this.onRequest,
+    required this.description,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isGranted ? Colors.green : Colors.grey,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isGranted ? Icons.check_circle : Icons.error,
+                color: isGranted ? Colors.green : Colors.orange,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(onPressed: onCheck, child: const Text('Check')),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: onRequest,
+                child: const Text('Request'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(color: Colors.grey[700], fontSize: 12),
+          ),
+        ],
       ),
     );
   }

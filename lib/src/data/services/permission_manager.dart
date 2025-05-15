@@ -18,6 +18,12 @@ class PermissionManager {
     } on PlatformException catch (e) {
       print('Error checking permission ${permission.name}: ${e.message}');
       return false;
+    } on MissingPluginException catch (_) {
+      // Handle missing implementation by returning a default value
+      print(
+          'Warning: Missing implementation for ${permission.name} permission check. '
+          'Assuming permission is not granted for safety.');
+      return false;
     }
   }
 
@@ -29,6 +35,12 @@ class PermissionManager {
       return granted;
     } on PlatformException catch (e) {
       print('Error requesting permission ${permission.name}: ${e.message}');
+      return false;
+    } on MissingPluginException catch (_) {
+      // Handle missing implementation by returning a default value
+      print(
+          'Warning: Missing implementation for ${permission.name} permission request. '
+          'Please implement the native method or restart your app.');
       return false;
     }
   }

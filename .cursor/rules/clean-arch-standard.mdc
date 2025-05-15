@@ -1,0 +1,247 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+## 📦 Package Dependencies
+
+```yaml
+dependencies:
+  # Data Layer
+  freezed_annotation: ^2.2.0
+  json_annotation: ^4.9.0
+  rxdart: ^0.28.0
+  
+  # Dependency Injection
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+  
+  # Diagnostics & Logging
+  fimber: ^0.7.0
+  
+  # Routing
+  auto_route: ^10.0.1
+  
+  # State Management
+  bloc: ^9.0.0
+  flutter_bloc: ^9.1.0
+  hydrated_bloc: ^10.0.0
+  
+  # Utilities
+  dartx: ^1.2.0
+  equatable: ^2.0.7
+  intl: ^0.20.2
+  ios_utsname_ext: ^2.3.0
+  logger: ^2.5.0
+  ntp: ^2.0.0
+
+dev_dependencies:
+  # Code Generation
+  build_runner: ^2.4.8
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  injectable_generator: ^2.5.0
+  auto_route_generator: ^10.0.0
+  
+  # Static Analysis
+  dart_code_metrics: ^5.7.6
+  flutter_lints: ^3.0.1
+```
+
+## 📚 Layer-Specific Guidelines
+
+### 1. **Data Layer (Models, Entities, DTOs)**
+
+Use `freezed` to define immutable classes with serialization support.
+
+> ✅ Naming:
+> `user_model.dart`, `user_entity.dart`
+
+> ✅ Example structure:
+
+```dart
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'user_model.freezed.dart';
+part 'user_model.g.dart';
+
+@freezed
+class UserModel with _$UserModel {
+  const factory UserModel({
+    required String id,
+    required String name,
+  }) = _UserModel;
+
+  factory UserModel.fromJson(Map<String, dynamic> json) => _$UserModelFromJson(json);
+}
+```
+
+---
+
+### 2. **Dependency Injection**
+
+> ✅ Place DI configuration in `injection.dart` and use `@injectableInit`.
+
+```dart
+@injectableInit
+void configureDependencies() => getIt.init();
+
+// Services
+@injectable
+class ApiService {
+  // Implementation
+}
+```
+
+---
+
+### 3. **Diagnostics & Logging**
+
+> ✅ Use `Fimber.i` for logs. Add tags like `[API]`, `[UI]`, `[ERROR]`.
+
+```dart
+// Good logging example
+void fetchData() {
+  try {
+    Fimber.i('[API] Fetching user data');
+    // Implementation
+  } catch (e) {
+    Fimber.e('[API][ERROR] Failed to fetch user data', ex: e);
+  }
+}
+```
+
+---
+
+### 4. **Routing**
+
+> ✅ Configure in `app_router.dart` using `@AutoRouter()`
+> ✅ Use `@RoutePage()` for pages.
+
+```dart
+@AutoRouterConfig()
+class AppRouter extends $AppRouter {
+  @override
+  List<AutoRoute> get routes => [
+        AutoRoute(page: HomeRoute.page, initial: true),
+        AutoRoute(page: LoginRoute.page),
+      ];
+}
+
+@RoutePage()
+class HomePage extends StatelessWidget {
+  // Implementation
+}
+```
+
+---
+
+### 5. **State Management (Bloc)**
+
+> ✅ States follow the pattern using `freezed` for state immutability.
+
+```dart
+// auth_bloc.dart
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+
+part 'auth_event.dart';
+part 'auth_state.dart';
+part 'auth_bloc.freezed.dart';
+
+@injectable
+class AuthBloc extends Bloc<AuthEvent, AuthState> {
+  final AuthRepository _authRepository;
+
+  AuthBloc(this._authRepository) : super(AuthState.initial()) {
+    on<AuthLoginRequested>(_onLoginRequested);
+  }
+
+  Future<void> _onLoginRequested(
+    AuthLoginRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(state.copyWith(loginProgress: const ResourceState.loading()));
+    
+    try {
+      final user = await _authRepository.login(event.email, event.password);
+      emit(state.copyWith(loginProgress: ResourceState.success(user)));
+    } catch (e) {
+      emit(state.copyWith(loginProgress: ResourceState.error(e.toString())));
+    }
+  }
+}
+
+// auth_event.dart
+part of 'auth_bloc.dart';
+
+@freezed
+class AuthEvent with _$AuthEvent {
+  const factory AuthEvent.loginRequested({
+    required String email,
+    required String password,
+  }) = AuthLoginRequested;
+  
+  const factory AuthEvent.logoutRequested() = AuthLogoutRequested;
+}
+
+// auth_state.dart
+part of 'auth_bloc.dart';
+
+@freezed
+class AuthState with _$AuthState {
+  const factory AuthState({
+    required ResourceState<UserEntity?> loginProgress,
+    required ResourceState<void> registerProgress,
+    String? name,
+  }) = _AuthState;
+
+  factory AuthState.initial() => const AuthState(
+        loginProgress: ResourceState.initial(),
+        registerProgress: ResourceState.initial(),
+        name: null,
+      );
+}
+
+// resource_state.dart (reusable state wrapper)
+@freezed
+class ResourceState<T> with _$ResourceState<T> {
+  const factory ResourceState.initial() = Initial<T>;
+  const factory ResourceState.loading() = Loading<T>;
+  const factory ResourceState.success(T data) = Success<T>;
+  const factory ResourceState.error(String message) = Error<T>;
+}
+```
+
+---
+
+## 🗂️ File Structure & Conventions
+
+| Layer           | File/Folder Example                | Notes                                 |
+| --------------- | ---------------------------------- | ------------------------------------- |
+| Project Root    | `lib/`                             | Main source directory                |
+| Models          | `lib/data/models/{feature}/user_model.dart`     | Feature-specific code               |
+| Entities        | `lib/domain/entities/{feature}/user_model.dart` | Use `freezed` and `json_serializable` |
+| Blocs           | `lib/features/{feature}/presentation/bloc/auth_bloc.dart` | State uses `freezed`                  |
+| Repositories    | `lib/data/repositories/{feature}/auth_repository.dart` | Interface + Impl preferred            |
+| Use Cases       | `lib/domain/interactors/login_use_case.dart` | Keep logic separate                   |
+| Pages/Views     | `lib/presentation/{feature}/pages/login_page.dart` | Annotated with `@RoutePage()`         |
+| DI              | `lib/core/injection/injection.dart` | Annotated with `@injectable`          |
+| Core/Common     | `lib/core/`                        | Shared utilities and base classes    |
+
+---
+
+## ⚙️ Behavior Rules for AI
+
+* Always use `freezed` for defining states, models, and entities
+* Bloc states must use union types with `ResourceState<T>` for stream operations
+* Add `part` and `part of` consistently when using code generation
+* Use `injectable` annotations on services, repositories, and blocs
+* Use `AutoRoute` for all navigation – avoid `Navigator.push`
+* Follow immutable data pattern – create new instances, don't modify
+* Apply early returns to avoid deeply nested code
+* All functions should have less than 20 lines
+* Name boolean variables with verbs: `isLoading`, `hasError`, `canProceed`
+* All files must follow the `analysis_options.yaml` rules
+* Functions should follow SRP (Single Responsibility Principle)
+* Use dependency injection for all services and repositories
